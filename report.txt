@@ -1,0 +1,32 @@
+TensorFlow 2.0 Upgrade Script
+-----------------------------
+Converted 1 files
+Detected 2 issues that require attention
+--------------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+File: test.py
+--------------------------------------------------------------------------------
+test.py:145:16: WARNING: *.save requires manual check. (This warning is only applicable if the code saves a tf.Keras model) Keras model.save now saves to the Tensorflow SavedModel format by default, instead of HDF5. To continue saving to HDF5, add the argument save_format='h5' to the save() function.
+test.py:178:16: WARNING: *.save requires manual check. (This warning is only applicable if the code saves a tf.Keras model) Keras model.save now saves to the Tensorflow SavedModel format by default, instead of HDF5. To continue saving to HDF5, add the argument save_format='h5' to the save() function.
+================================================================================
+Detailed log follows:
+
+================================================================================
+--------------------------------------------------------------------------------
+Processing file 'test.py'
+ outputting to 'upgraded_test.py'
+--------------------------------------------------------------------------------
+
+73:12: INFO: Added keywords to args of function 'tf.depth_to_space'
+73:12: INFO: Renamed 'tf.depth_to_space' to 'tf.compat.v1.depth_to_space'
+84:4: INFO: Renamed 'tf.placeholder' to 'tf.compat.v1.placeholder'
+88:11: INFO: Renamed 'tf.placeholder' to 'tf.compat.v1.placeholder'
+90:5: INFO: Renamed 'tf.variable_scope' to 'tf.compat.v1.variable_scope'
+93:23: INFO: Renamed 'tf.global_variables' to 'tf.compat.v1.global_variables'
+96:9: INFO: Renamed 'tf.ConfigProto' to 'tf.compat.v1.ConfigProto'
+99:5: INFO: Renamed 'tf.Session' to 'tf.compat.v1.Session'
+100:4: INFO: Renamed 'tf.global_variables_initializer' to 'tf.compat.v1.global_variables_initializer'
+145:16: WARNING: *.save requires manual check. (This warning is only applicable if the code saves a tf.Keras model) Keras model.save now saves to the Tensorflow SavedModel format by default, instead of HDF5. To continue saving to HDF5, add the argument save_format='h5' to the save() function.
+178:16: WARNING: *.save requires manual check. (This warning is only applicable if the code saves a tf.Keras model) Keras model.save now saves to the Tensorflow SavedModel format by default, instead of HDF5. To continue saving to HDF5, add the argument save_format='h5' to the save() function.
+--------------------------------------------------------------------------------
+

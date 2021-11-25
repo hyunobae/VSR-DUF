@@ -36,12 +36,12 @@ def LoadImage(path, color_mode='RGB', channel_mean=None, modcrop=[0,0,0,0]):
 
     return x
 
-def DownSample(x, h, scale=4):
+def DownSample(x, h, scale=4): # lr images, gaussian filter, scale
     ds_x = tf.shape(x)
-    x = tf.reshape(x, [ds_x[0]*ds_x[1], ds_x[2], ds_x[3], 3])
+    x = tf.reshape(x, [ds_x[0]*ds_x[1], ds_x[2], ds_x[3], 3]) # 아마 batch*input, h, w, color space
     
     # Reflect padding
-    W = tf.constant(h)
+    W = tf.constant(h) # W : constant gaussian filter
 
     filter_height, filter_width = 13, 13
     pad_height = filter_height - 1
