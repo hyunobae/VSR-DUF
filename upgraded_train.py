@@ -13,6 +13,7 @@ from sr_utils import _load_img_array
 from sr_utils import *
 from utils import AVG_PSNR
 from nets import FR_52L as FR
+from utils import load_datasets
 
 
 from scipy.io import loadmat
@@ -25,17 +26,11 @@ VERSION = 123
 MODEL = 'DF'
 nb_batch = 16
 
-Iter_H = GeneratorEnqueuer(DirectoryIterator_VSR_FromPickle('/hdd2/datasets/VSR/',
-                                 listfile='vsr_traindata_filelist.pickle',
-                                 datafile='./vsr_traindata_144_nframe31_cpi2_batch16_i10000_.pickle',
-                                 total_samples=160000,
-                                 target_size=144, 
-                                 nframe = 7,
-                                 maxbframe = 3,
-                                 crop_per_image=2,
-                                 out_batch_size=nb_batch, 
-                                 shuffle=False))
-Iter_H.start(max_q_size=16, workers=4)
+x_train_path = './dataset/train/L'
+y_train_path = './dataset/train/G'
+
+x_train = load_datasets(x_train_path)
+y_train = load_datasets(y_train_path)
 
 
 

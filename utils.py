@@ -3,6 +3,40 @@ import numpy as np
 import tensorflow as tf
 import h5py
 from PIL import Image
+from tensorflow.keras.utils import Sequence
+import math
+import os
+import glob
+
+class CustomDataloader(Sequence):
+    def __init__(self, x_set, y_set, batch_size, shuffle=False):
+        self.x, self.y = x_set, y_set
+        self.batch_size = batch_size
+        self.shuffle = shuffle
+
+    def __len__(self):
+        return math.ceil(len(self.x) / self.batch_size)
+
+    def __getitem__(self, idx):
+        indices = self.indices[idx*self.batch_size:(idx+1)*self.batch_size]
+
+        batch_x = [self.x[i] for i in indices]
+        batch_y = [self.y[i] for i in indices]
+
+        return np.array(batch_x), np.array(batch_y)
+
+def load_datasets(path):
+    dir = os.listdir(path)
+    frames = []
+    for i in range(len(dir)):
+        dir_frame = glob.glob(path+'/'+dir[i]+'/*.png')
+        for f in dir_frame:
+            frames.append(LoadImage(f))
+
+    frames = np.asarray(frames)
+    return frames
+
+
 
 def LoadImage(path, color_mode='RGB', channel_mean=None, modcrop=[0,0,0,0]):
     '''Load an image using PIL and convert it into specified color space,
@@ -227,3 +261,5 @@ def Huber(y_true, y_pred, delta, axis=None):
     linear = (abs_error - quadratic)
     losses = 0.5 * quadratic**2 + delta * linear
     return tf.reduce_mean(losses, axis=axis)
+
+
