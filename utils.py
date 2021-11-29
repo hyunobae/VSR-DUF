@@ -7,6 +7,9 @@ from tensorflow.keras.utils import Sequence
 import math
 import os
 import glob
+from nets import FR_52L as FR
+
+import tensorflow.keras
 
 class CustomDataloader(Sequence):
     def __init__(self, x_set, y_set, batch_size, shuffle=False):
@@ -35,6 +38,48 @@ def load_datasets(path):
 
     frames = np.asarray(frames)
     return frames
+
+
+def gkern(kernlen=13, nsig=1.6):
+    import scipy.ndimage.filters as fi
+    # create nxn zeros
+    inp = np.zeros((kernlen, kernlen))
+    # set element at the middle to one, a dirac delta
+    inp[kernlen // 2, kernlen // 2] = 1
+    # gaussian-smooth the dirac, resulting in a gaussian filter mask
+    return fi.gaussian_filter(inp, nsig)
+
+
+h = gkern(kernlen=13, nsig=1.6)
+h = h[:, :, np.newaxis, np.newaxis].astype(np.float32)
+
+
+def DownSample(x, h, scale=4):
+    ds_x = tf.shape(input=x)
+    x = tf.reshape(x, [ds_x[0] * ds_x[1], ds_x[2], ds_x[3], 3])
+
+    ## Reflect padding
+    W = tf.constant(h)
+
+    filter_height, filter_width = 13, 13
+    pad_height = filter_height - 1
+    pad_width = filter_width - 1
+
+    # When pad_height (pad_width) is odd, we pad more to bottom (right),
+    # following the same convention as conv2d().
+    pad_top = pad_height // 2
+    pad_bottom = pad_height - pad_top
+    pad_left = pad_width // 2
+    pad_right = pad_width - pad_left
+    pad_array = [[0, 0], [pad_top, pad_bottom], [pad_left, pad_right], [0, 0]]
+
+    depthwise_F = tf.tile(W, [1, 1, 3, 1])
+    y = tf.nn.depthwise_conv2d(input=tf.pad(tensor=x, paddings=pad_array, mode='REFLECT'), filter=depthwise_F,
+                               strides=[1, scale, scale, 1], padding='VALID')
+
+    ds_y = tf.shape(input=y)
+    y = tf.reshape(y, [ds_x[0], ds_x[1], ds_y[1], ds_y[2], 3])
+    return y
 
 
 
@@ -96,6 +141,61 @@ def DownSample(x, h, scale=4): # lr images, gaussian filter, scale
     y = tf.reshape(y, [ds_x[0], ds_x[1], ds_y[1], ds_y[2], 3])
     return y
 
+
+def G(x):  # generate DUF, residual
+    # x : b,5,32,32,3
+    Fx, Rx = FR(x)  # Fx: b,2,32,32,75,16 / filter net, residual net
+    Rx = depth_to_space_3D(Rx, 4)
+    x_c = []
+    x_f = []
+    for f in range(1):
+        for c in range(3):
+            t = DynFilter3D(x[:, f + 3:f + 4, :, :, c], Fx[:, f, :, :, :, :], [1, 5, 5])  # b,32,32,16
+            t = tf.compat.v1.depth_to_space(input=t, block_size=4)  # b,128,128,1
+            t = tf.squeeze(t, axis=3)  # b,128,128
+            x_c += [t]
+        x_f += [tf.stack(x_c, axis=3)]  # b,128,128,3
+        x_c = []
+    x = tf.stack(x_f, axis=1)  # b,2,128,128,3
+    x += Rx
+
+    return x, tf.reshape(Fx[:, 0, 16, 16, :, 0], [-1, 1, 5, 5, 1]), Rx
+
+
+def depth_to_space_3D(x, block_size):
+    ds_x = tf.shape(input=x)
+    x = tf.reshape(x, [ds_x[0] * ds_x[1], ds_x[2], ds_x[3], ds_x[4]])
+
+    y = tf.compat.v1.depth_to_space(input=x, block_size=block_size)
+
+    ds_y = tf.shape(input=y)
+    x = tf.reshape(y, [ds_x[0], ds_x[1], ds_y[1], ds_y[2], ds_y[3]])
+    return x
+
+
+def DynFilter3D(x, F, filter_size):
+    '''
+    input x: (b, t, h, w)
+          F: (b, h, w, tower_depth, output_depth)
+          filter_shape (ft, fh, fw)
+    '''
+
+    # make tower
+    filter_localexpand_np = np.reshape(np.eye(np.prod(filter_size), np.prod(filter_size)),
+                                       (filter_size[1], filter_size[2], filter_size[0], np.prod(filter_size)))
+    filter_localexpand = tf.Variable(filter_localexpand_np, trainable=False, dtype='float32',
+                                     name='filter_localexpand')  # 5,5,5,125
+    x = tf.transpose(a=x, perm=[0, 2, 3, 1])  # b, h, w, t
+    x_localexpand = tf.nn.conv2d(input=x, filters=filter_localexpand, strides=[1, 1, 1, 1],
+                                 padding='SAME')  # batch, 32,32,125
+    x_localexpand = tf.expand_dims(x_localexpand, axis=3)  # b, 32,32,1,125
+    x = tf.matmul(x_localexpand, F)  # b, 32,32,1,16
+    x = tf.squeeze(x, axis=3)  # b, 32,32,16
+
+    return x
+
+
+
 def _rgb2ycbcr(img, maxVal=255):
     O = np.array([[16],
                   [128],
@@ -151,7 +251,7 @@ def AVG_PSNR(vid_true, vid_pred, vmin=0, vmax=255, t_border=2, sp_border=8, is_T
     return np.mean(np.asarray(psnrs))
 
 
-he_normal_init = tf.contrib.layers.variance_scaling_initializer(factor=2.0, mode='FAN_IN', uniform=False)
+he_normal_init = tf.keras.initializers.VarianceScaling(scale=2.0, mode='fan_in')
 
 def BatchNorm(input, is_train, decay=0.999, name='BatchNorm'):
     '''
