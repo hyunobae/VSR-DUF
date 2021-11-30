@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 import numpy as np
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 import h5py
 from PIL import Image
 from tensorflow.keras.utils import Sequence
 import math
 import os
 import glob
-from nets import FR_52L as FR
+from nets import FR_52L
 
 import tensorflow.keras
 
@@ -31,14 +31,19 @@ class CustomDataloader(Sequence):
 def load_datasets(path):
     dir = os.listdir(path)
     frames = []
-    for i in range(len(dir)):
+    for i in range(2):
         dir_frame = glob.glob(path+'/'+dir[i]+'/*.png')
         for f in dir_frame:
             frames.append(LoadImage(f))
+            print(f"{f} appended")
 
     frames = np.asarray(frames)
+    # if flag == 'x':
+    #     frames_padded = np.lib.pad(frames, pad_width=((7 // 2, 7 // 2), (0, 0), (0, 0), (0, 0)),mode='constant')  # print(frames_padded.shape) (26, 100, 115, 3)
+    #     return frames, frames_padded
+    #
+    # elif flag == 'y': return frames
     return frames
-
 
 def gkern(kernlen=13, nsig=1.6):
     import scipy.ndimage.filters as fi
@@ -144,7 +149,7 @@ def DownSample(x, h, scale=4): # lr images, gaussian filter, scale
 
 def G(x):  # generate DUF, residual
     # x : b,5,32,32,3
-    Fx, Rx = FR(x)  # Fx: b,2,32,32,75,16 / filter net, residual net
+    Fx, Rx = FR_52L(x)  # Fx: b,2,32,32,75,16 / filter net, residual net
     Rx = depth_to_space_3D(Rx, 4)
     x_c = []
     x_f = []
@@ -261,16 +266,16 @@ def BatchNorm(input, is_train, decay=0.999, name='BatchNorm'):
     '''
     from tensorflow.python.training import moving_averages
     from tensorflow.python.ops import control_flow_ops
-    
+
     axis = list(range(len(input.get_shape()) - 1))
     fdim = input.get_shape()[-1:]
-    
+
     with tf.variable_scope(name):
         beta = tf.get_variable('beta', fdim, initializer=tf.constant_initializer(value=0.0))
         gamma = tf.get_variable('gamma', fdim, initializer=tf.constant_initializer(value=1.0))
         moving_mean = tf.get_variable('moving_mean', fdim, initializer=tf.constant_initializer(value=0.0), trainable=False)
         moving_variance = tf.get_variable('moving_variance', fdim, initializer=tf.constant_initializer(value=0.0), trainable=False)
-  
+
         def mean_var_with_update():
             batch_mean, batch_variance = tf.nn.moments(input, axis)
             update_moving_mean = moving_averages.assign_moving_average(moving_mean, batch_mean, decay, zero_debias=True)
@@ -289,7 +294,7 @@ def Conv3D(input, kernel_shape, strides, padding, name='Conv3d', W_initializer=h
             b = tf.get_variable("b", (kernel_shape[-1]),initializer=tf.constant_initializer(value=0.0))
         else:
             b = 0
-        
+
     return tf.nn.conv3d(input, W, strides, padding) + b
 
 def LoadParams(sess, params, in_file='parmas.hdf5'):

@@ -9,16 +9,19 @@
 @software: PyCharm
 """
 
-import tensorflow as tf
-from utils import BatchNorm,Conv3D,DynFilter3D,depth_to_space_3D,Huber, LoadImage
+import tensorflow.compat.v1 as tf
+from utils import BatchNorm,Conv3D,DynFilter3D,depth_to_space_3D,Huber, LoadImage, load_datasets
 import numpy as np
 import glob
 from tensorflow.python.framework import graph_util
-
+import tensorflow.compat.v1
+tf.compat.v1.disable_eager_execution()
 # Size of input temporal radius
 T_in = 7
 # Upscaling factor
 R = 4
+
+print(tf.test.is_gpu_available())
 
 def freeze_graph(check_point_folder,model_folder,pb_name):
     # We retrieve our checkpoint fullpath
@@ -89,30 +92,33 @@ def get_y(path):
 """
 train datasets
 """
-x_train_path='./data/x_train_data4x/'
-y_train_path='./data/y_train_data/'
-x_train_data,x_train_data_padded=get_x(x_train_path) # print(x_data_padded.shape) (26, 100, 115, 3)
-y_train_data=get_y(y_train_path) # print(y_data.shape) (20, 400, 460, 3)
+# x_train_path='./dataset/train/L'
+# y_train_path='./dataset/train/G'
+# x_train_data,x_train_data_padded=load_datasets(x_train_path,'x') # print(x_data_padded.shape) (26, 100, 115, 3)
+# y_train_data=load_datasets(y_train_path,'y') # print(y_data.shape) (20, 400, 460, 3)
 
-y_true=[]
-for i in range(len(y_train_data)):
-    y_true.append(y_train_data[i][np.newaxis,np.newaxis,:,:,:]) # print(yy[1].shape) (1, 1, 400, 460, 3)
-y_true=np.asarray(y_true)
-y_train_data=y_true
+x_train_path = './dataset/train/G'
+x_train = load_datasets(x_train_path)
+
+# y_true=[]
+# for i in range(len(y_train_data)):
+#     y_true.append(y_train_data[i][np.newaxis,np.newaxis,:,:,:]) # print(yy[1].shape) (1, 1, 400, 460, 3)
+# y_true=np.asarray(y_true)
+# y_train_data=y_true
 
 """
 valid datasets
 """
-x_valid_path='./data/x_valid_data4x/'
-y_valid_path='./data/y_valid_data/'
-x_valid_data,x_valid_data_padded=get_x(x_valid_path) # print(x_data_padded.shape) (26, 100, 115, 3)
-y_valid_data=get_y(y_valid_path) # print(y_data.shape) (20, 400, 460, 3)
-
-y_true=[]
-for i in range(len(y_valid_data)):
-    y_true.append(y_valid_data[i][np.newaxis,np.newaxis,:,:,:]) # print(yy[1].shape) (1, 1, 400, 460, 3)
-y_true=np.asarray(y_true)
-y_valid_data=y_true
+x_valid_path='./dataset/val/G'
+# y_valid_path='./data/y_valid_data/'
+# x_valid_data,x_valid_data_padded=get_x(x_valid_path) # print(x_data_padded.shape) (26, 100, 115, 3)
+# y_valid_data=get_y(y_valid_path) # print(y_data.shape) (20, 400, 460, 3)
+#
+# y_true=[]
+# for i in range(len(y_valid_data)):
+#     y_true.append(y_valid_data[i][np.newaxis,np.newaxis,:,:,:]) # print(yy[1].shape) (1, 1, 400, 460, 3)
+# y_true=np.asarray(y_true)
+# y_valid_data=y_true
 
 # Gaussian kernel for downsampling
 def gkern(kernlen=13, nsig=1.6):
@@ -134,6 +140,7 @@ is_train = tf.placeholder(tf.bool, shape=[],name='is_train') # Phase ,scalar
 
 # L_ = DownSample(H_in, h, R)
 L =  tf.placeholder(tf.float32, shape=[None, T_in, None, None, 3],name='L_in')
+print(f"L shape: {L.shape}")
 
 # build model
 stp = [[0, 0], [1, 1], [1, 1], [1, 1], [0, 0]]
@@ -220,50 +227,51 @@ config = tf.ConfigProto()
 config.gpu_options.allow_growth=True
 saver = tf.train.Saver()
 with tf.Session(config=config) as sess:
-    sess.run(tf.global_variables_initializer())
-    # tf.global_variables_initializer().run()
-    for global_step in range(num_epochs):
-        if global_step!=0 and np.mod(global_step,10)==0:
-            sess.run(learning_rate_decay_op)
-        total_train_loss = 0
-        total_valid_loss = 0
-        print("-------------------------- Epoch {:3d} ----------------------------".format(global_step))
-        for i in range(5):
-            print("---------- optimize sess.run start ----------")
+    with tf.device("/gpu:0"):
+        sess.run(tf.global_variables_initializer())
+        # tf.global_variables_initializer().run()
+        for global_step in range(num_epochs):
+            if global_step!=0 and np.mod(global_step,10)==0:
+                sess.run(learning_rate_decay_op)
+            total_train_loss = 0
+            total_valid_loss = 0
+            print("-------------------------- Epoch {:3d} ----------------------------".format(global_step))
+            for i in range(5):
+                print("---------- optimize sess.run start ----------")
+                for j in range(x_train_data.shape[0]):
+                    in_L = x_train_data_padded[j:j + T_in]  # select T_in frames
+                    in_L = in_L[np.newaxis, :, :, :, :]
+                    sess.run(optimizer,feed_dict={H_out_true:y_train_data[j],L:in_L,is_train: True})
+                    print("optimize:"+ str(i)+" "+str(j) +" finished.")
+
+            print("---------- train cost sess.run start -----------")
             for j in range(x_train_data.shape[0]):
                 in_L = x_train_data_padded[j:j + T_in]  # select T_in frames
                 in_L = in_L[np.newaxis, :, :, :, :]
-                sess.run(optimizer,feed_dict={H_out_true:y_train_data[j],L:in_L,is_train: True})
-                print("optimize:"+ str(i)+" "+str(j) +" finished.")
+                train_loss = sess.run(cost, feed_dict={H_out_true: y_train_data[j], L: in_L, is_train: True})
+                total_train_loss = total_train_loss + train_loss
+                # print('this single train cost: {:.7f}'.format(train_loss))
+                print("train cost :" + str(i) + " " + str(j) + " finished.")
 
-        print("---------- train cost sess.run start -----------")
-        for j in range(x_train_data.shape[0]):
-            in_L = x_train_data_padded[j:j + T_in]  # select T_in frames
-            in_L = in_L[np.newaxis, :, :, :, :]
-            train_loss = sess.run(cost, feed_dict={H_out_true: y_train_data[j], L: in_L, is_train: True})
-            total_train_loss = total_train_loss + train_loss
-            # print('this single train cost: {:.7f}'.format(train_loss))
-            print("train cost :" + str(i) + " " + str(j) + " finished.")
+            # for j in range(x_valid_data.shape[0]):
+            #     in_L = x_valid_data_padded[j:j + T_in]  # select T_in frames
+            #     in_L = in_L[np.newaxis, :, :, :, :]
+            #     valid_loss = sess.run(cost, feed_dict={H_out_true: y_valid_data[j], L: in_L, is_train: True})
+            #     total_valid_loss = total_valid_loss + valid_loss
+            #     # print('this single valid cost: {:.7f}'.format(valid_loss))
+            #     print("valid cost :" + str(i) + " " + str(j) + " finished.")
 
-        for j in range(x_valid_data.shape[0]):
-            in_L = x_valid_data_padded[j:j + T_in]  # select T_in frames
-            in_L = in_L[np.newaxis, :, :, :, :]
-            valid_loss = sess.run(cost, feed_dict={H_out_true: y_valid_data[j], L: in_L, is_train: True})
-            total_valid_loss = total_valid_loss + valid_loss
-            # print('this single valid cost: {:.7f}'.format(valid_loss))
-            print("valid cost :" + str(i) + " " + str(j) + " finished.")
+            avg_train_loss=total_train_loss/x_train_data.shape[0]
+            # avg_valid_loss=total_valid_loss/x_valid_data.shape[0]
+            print("Epoch - {:2d}, avg loss on train set: {:.7f}".format(global_step, avg_train_loss))
 
-        avg_train_loss=total_train_loss/x_train_data.shape[0]
-        avg_valid_loss=total_valid_loss/x_valid_data.shape[0]
-        print("Epoch - {:2d}, avg loss on train set: {:.7f}, avg loss on valid set: {:.7f}.".format(global_step, avg_train_loss,avg_valid_loss))
+            if global_step==0:
+                with open('./logs/pb_graph_log.txt', 'w') as f:
+                    f.write(str(sess.graph_def))
+                var_list = tf.global_variables()
+                with open('./logs/global_variables_log.txt','w') as f:
+                    f.write(str(var_list))
 
-        if global_step==0:
-            with open('./logs/pb_graph_log.txt', 'w') as f:
-                f.write(str(sess.graph_def))
-            var_list = tf.global_variables()
-            with open('./logs/global_variables_log.txt','w') as f:
-                f.write(str(var_list))
-
-        tf.train.write_graph(sess.graph_def, '.', './checkpoint/duf_'+str(global_step)+'.pbtxt')
-        saver.save(sess, save_path="./checkpoint/duf",global_step=global_step)
-        freeze_graph(check_point_folder='./checkpoint/',model_folder='./model',pb_name='My_Duf_'+str(global_step)+'.pb')
+            tf.train.write_graph(sess.graph_def, '.', './checkpoint/duf_'+str(global_step)+'.pbtxt')
+            saver.save(sess, save_path="./checkpoint/duf",global_step=global_step)
+            freeze_graph(check_point_folder='./checkpoint/',model_folder='./model',pb_name='My_Duf_'+str(global_step)+'.pb')
