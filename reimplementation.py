@@ -92,24 +92,24 @@ def get_y(path):
 """
 train datasets
 """
-# x_train_path='./dataset/train/L'
-# y_train_path='./dataset/train/G'
-# x_train_data,x_train_data_padded=load_datasets(x_train_path,'x') # print(x_data_padded.shape) (26, 100, 115, 3)
-# y_train_data=load_datasets(y_train_path,'y') # print(y_data.shape) (20, 400, 460, 3)
+x_train_path='./dataset/train/L'
+y_train_path='./dataset/train/G'
+x_train_data,x_train_data_padded=load_datasets(x_train_path,'x') # print(x_data_padded.shape) (26, 100, 115, 3)
+y_train_data=load_datasets(y_train_path,'y') # print(y_data.shape) (20, 400, 460, 3)
 
-x_train_path = './dataset/train/G'
-x_train = load_datasets(x_train_path)
+# x_train_path = './dataset/train/G'
+# x_train = load_datasets(x_train_path)
 
-# y_true=[]
-# for i in range(len(y_train_data)):
-#     y_true.append(y_train_data[i][np.newaxis,np.newaxis,:,:,:]) # print(yy[1].shape) (1, 1, 400, 460, 3)
-# y_true=np.asarray(y_true)
-# y_train_data=y_true
+y_true=[]
+for i in range(len(y_train_data)):
+    y_true.append(y_train_data[i][np.newaxis,np.newaxis,:,:,:]) # print(yy[1].shape) (1, 1, 400, 460, 3)
+y_true=np.asarray(y_true)
+y_train_data=y_true
 
 """
 valid datasets
 """
-x_valid_path='./dataset/val/G'
+# x_valid_path='./dataset/val/G'
 # y_valid_path='./data/y_valid_data/'
 # x_valid_data,x_valid_data_padded=get_x(x_valid_path) # print(x_data_padded.shape) (26, 100, 115, 3)
 # y_valid_data=get_y(y_valid_path) # print(y_data.shape) (20, 400, 460, 3)

@@ -28,7 +28,7 @@ class CustomDataloader(Sequence):
 
         return np.array(batch_x), np.array(batch_y)
 
-def load_datasets(path):
+def load_datasets(path, flag):
     dir = os.listdir(path)
     frames = []
     for i in range(2):
@@ -38,12 +38,12 @@ def load_datasets(path):
             print(f"{f} appended")
 
     frames = np.asarray(frames)
-    # if flag == 'x':
-    #     frames_padded = np.lib.pad(frames, pad_width=((7 // 2, 7 // 2), (0, 0), (0, 0), (0, 0)),mode='constant')  # print(frames_padded.shape) (26, 100, 115, 3)
-    #     return frames, frames_padded
-    #
-    # elif flag == 'y': return frames
-    return frames
+    if flag == 'x':
+        frames_padded = np.lib.pad(frames, pad_width=((7 // 2, 7 // 2), (0, 0), (0, 0), (0, 0)),mode='constant')  # print(frames_padded.shape) (26, 100, 115, 3)
+        return frames, frames_padded
+
+    elif flag == 'y': return frames
+
 
 def gkern(kernlen=13, nsig=1.6):
     import scipy.ndimage.filters as fi
