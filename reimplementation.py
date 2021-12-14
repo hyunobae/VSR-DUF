@@ -97,8 +97,6 @@ y_train_path='./dataset/train/G'
 x_train_data,x_train_data_padded=load_datasets(x_train_path,'x') # print(x_data_padded.shape) (26, 100, 115, 3)
 y_train_data=load_datasets(y_train_path,'y') # print(y_data.shape) (20, 400, 460, 3)
 
-# x_train_path = './dataset/train/G'
-# x_train = load_datasets(x_train_path)
 
 y_true=[]
 for i in range(len(y_train_data)):
@@ -109,16 +107,16 @@ y_train_data=y_true
 """
 valid datasets
 """
-# x_valid_path='./dataset/val/G'
-# y_valid_path='./data/y_valid_data/'
-# x_valid_data,x_valid_data_padded=get_x(x_valid_path) # print(x_data_padded.shape) (26, 100, 115, 3)
-# y_valid_data=get_y(y_valid_path) # print(y_data.shape) (20, 400, 460, 3)
-#
-# y_true=[]
-# for i in range(len(y_valid_data)):
-#     y_true.append(y_valid_data[i][np.newaxis,np.newaxis,:,:,:]) # print(yy[1].shape) (1, 1, 400, 460, 3)
-# y_true=np.asarray(y_true)
-# y_valid_data=y_true
+x_valid_path='./dataset/val/G'
+y_valid_path='./data/y_valid_data/'
+x_valid_data,x_valid_data_padded=load_datasets(x_valid_path, 'x') # print(x_data_padded.shape) (26, 100, 115, 3)
+y_valid_data=load_datasets(y_valid_path, 'y') # print(y_data.shape) (20, 400, 460, 3)
+
+y_true=[]
+for i in range(len(y_valid_data)):
+    y_true.append(y_valid_data[i][np.newaxis,np.newaxis,:,:,:]) # print(yy[1].shape) (1, 1, 400, 460, 3)
+y_true=np.asarray(y_true)
+y_valid_data=y_true
 
 # Gaussian kernel for downsampling
 def gkern(kernlen=13, nsig=1.6):
@@ -253,17 +251,18 @@ with tf.Session(config=config) as sess:
                 # print('this single train cost: {:.7f}'.format(train_loss))
                 print("train cost :" + str(i) + " " + str(j) + " finished.")
 
-            # for j in range(x_valid_data.shape[0]):
-            #     in_L = x_valid_data_padded[j:j + T_in]  # select T_in frames
-            #     in_L = in_L[np.newaxis, :, :, :, :]
-            #     valid_loss = sess.run(cost, feed_dict={H_out_true: y_valid_data[j], L: in_L, is_train: True})
-            #     total_valid_loss = total_valid_loss + valid_loss
-            #     # print('this single valid cost: {:.7f}'.format(valid_loss))
-            #     print("valid cost :" + str(i) + " " + str(j) + " finished.")
+            for j in range(x_valid_data.shape[0]):
+                in_L = x_valid_data_padded[j:j + T_in]  # select T_in frames
+                in_L = in_L[np.newaxis, :, :, :, :]
+                valid_loss = sess.run(cost, feed_dict={H_out_true: y_valid_data[j], L: in_L, is_train: True})
+                total_valid_loss = total_valid_loss + valid_loss
+                # print('this single valid cost: {:.7f}'.format(valid_loss))
+                print("valid cost :" + str(i) + " " + str(j) + " finished.")
 
             avg_train_loss=total_train_loss/x_train_data.shape[0]
             # avg_valid_loss=total_valid_loss/x_valid_data.shape[0]
             print("Epoch - {:2d}, avg loss on train set: {:.7f}".format(global_step, avg_train_loss))
+
 
             if global_step==0:
                 with open('./logs/pb_graph_log.txt', 'w') as f:

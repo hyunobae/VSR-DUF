@@ -30,8 +30,9 @@ class CustomDataloader(Sequence):
 
 def load_datasets(path, flag):
     dir = os.listdir(path)
+    dir.sort()
     frames = []
-    for i in range(2):
+    for i in range(len(dir)):
         dir_frame = glob.glob(path+'/'+dir[i]+'/*.png')
         for f in dir_frame:
             frames.append(LoadImage(f))
