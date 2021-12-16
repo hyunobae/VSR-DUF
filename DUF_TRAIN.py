@@ -1,4 +1,5 @@
 ## -*- coding: utf-8 -*-
+import random
 
 import tensorflow.compat.v1 as tf
 import numpy as np
@@ -13,7 +14,7 @@ tf.disable_v2_behavior()
 
 VERSION = 123
 MODEL = 'DF'
-nb_batch = 16
+nb_batch = 8
 
 
 def load_datasets(path):
@@ -29,9 +30,20 @@ def load_datasets(path):
     frames = np.asarray(frames)
     return frames
 
+def readdata(dir, idx):
+    frames = []
+    dir_frame = os.listdir(dir)
+    for i in range(7):
+        frames.append(LoadImage(dir+'hr'+str(idx+i)+'.png'))
+        # print(f"{i} appended")
 
-x = load_datasets('./dataset/train/G/')
+    frames = np.asarray(frames)
+    # print(frames.shape)
+    return frames
 
+
+# x = load_datasets('D:/compressed_dataset/train')
+x = 'D:/VSR-DUF/dataset/train/G'
 
 # val = load_datasets('./dataset/val/G')
 
@@ -42,36 +54,44 @@ class CustomDataloader(Sequence):
         self.shuffle = shuffle
         self.indices = np.arange(len(self.x))
         self.prev = 0
+        self.videolist = os.listdir(self.x)
 
     def __len__(self):
-        return int(int(len(self.x) / 7) / self.batch_size)
+        # return int(int(len(self.x) / 7) / self.batch_size)
+        return 220000*self.batch_size
 
     def __getitem__(self, idx):
-        self.prev = (7 * idx) * self.batch_size
-        if idx == 0:
-            self.next = self.batch_size * (idx + 7)
-        else:
-            self.next = (14 * idx) * self.batch_size + 1
+        frames = []
+        for i in range(self.batch_size):
+            idx_video = random.randint(0, len(self.videolist)-1)
+            cnt_frame = len(os.listdir(self.x+'/'+self.videolist[idx_video]))
+            idx_frame = random.randint(0, cnt_frame-8)
+            hrdir = self.x + '/' + self.videolist[idx_video] + '/'
+            frames.append(readdata(hrdir, idx_frame))
 
-        indices = self.indices[self.prev:self.next]  # 전체 데이터의 index 배
-        print(self.prev, self.next)
-        batch_x = [self.x[i] for i in indices]
-        batch_x = np.asarray(batch_x)
-        print(batch_x.shape)
-
-        batch_x = np.reshape(batch_x, (-1, 7, 960, 540, 3))
-
-        return batch_x  # (batch, 7, height, width, color)
+        frames = np.asarray(frames)
+        frames = np.reshape(frames, (-1, 7, 960, 540, 3))
+        return frames
+        #
+        #
+        # self.prev = (7 * idx) * self.batch_size
+        # if idx == 0:
+        #     self.next = self.batch_size * (idx + 7)
+        # else:
+        #     self.next = (14 * idx) * self.batch_size + 1
+        #
+        # indices = self.indices[self.prev:self.next]  # 전체 데이터의 index 배
+        # print(self.prev, self.next)
+        # batch_x = [self.x[i] for i in indices]
+        # batch_x = np.asarray(batch_x)
+        # print(batch_x.shape)
+        #
+        # batch_x = np.reshape(batch_x, (-1, 7, 960, 540, 3))
+        #
+        # return batch_x  # (batch, 7, height, width, color)
 
 
 train = CustomDataloader(x, batch_size=nb_batch)
-
-for e in range(3):
-    print(e)
-    for x in train:
-        print(x.shape)
-exit()
-
 
 # val = CustomDataloader(val, batch_size=nb_batch)
 
@@ -265,9 +285,6 @@ with tf.Session(config=config) as sess:
     resume = 0
     start_flag = True
 
-    # restore v13
-    #    LoadParams(sess, [params_G], in_file='checkpoints/DF/v82_i190000.h5')
-
     curr_lr_G = 0.001
     dT = 0.
     rT = 0.
@@ -299,7 +316,7 @@ with tf.Session(config=config) as sess:
         #
         #                     out_G = sess.run(GL, feed_dict={H: in_H, is_train: False})
         #                     out_G = np.clip(out_G[0,0], 0. , 1.)
-        # #                    plt.imsave('validation/'+MODEL+'/v'+str(VERSION)+'_i'+ str(i) + '_Vid'+str(n)+'_f'+str(f)+".png", (out_G+1.)/2., vmin=0, vmax=1)
+        #                     plt.imsave('validation/'+MODEL+'/v'+str(VERSION)+'_i'+ str(i) + '_Vid'+str(n)+'_f'+str(f)+".png", (out_G+1.)/2., vmin=0, vmax=1)
         #                     val_G[f] = out_G
 
         t = time.time()
@@ -319,7 +336,7 @@ with tf.Session(config=config) as sess:
             batch_G, batch_R = sess.run([GL, Rx], feed_dict={H: batch_H, is_train: False})
 
         if (i % 10000 == 0) and i != 0:
-            saver.save(sess, save_path='save/' + i + '/.h5')
+            saver.save(sess, save_path='save/' + str(i) + '/.h5')
             # SaveParams(sess, [params_G], out_file='checkpoints/'+MODEL+'/v'+str(VERSION)+'_i{:d}.h5'.format(i))
 
         if i % 100000 == 0 and i != 0:
