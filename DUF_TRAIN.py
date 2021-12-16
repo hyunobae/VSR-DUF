@@ -16,19 +16,20 @@ VERSION = 123
 MODEL = 'DF'
 nb_batch = 8
 
-
-def load_datasets(path):
-    dir = os.listdir(path)
-    dir.sort()
-    frames = []
-    for i in range(len(dir)):
-        dir_frame = glob.glob(path + '/' + dir[i] + '/*.png')
-        for f in dir_frame:
-            frames.append(LoadImage(f))
-            print(f"{f} appended")
-
-    frames = np.asarray(frames)
-    return frames
+#
+# def load_datasets(path):
+#     dir = os.listdir(path)
+#     dir.sort()
+#     frames = []
+#     for i in range(len(dir)):
+#         dir_frame = glob.glob(path + '/' + dir[i] + '/*.png')
+#         for f in dir_frame:
+#             frames.append(LoadImage(f))
+#             print(f"{f} appended")
+#
+#     frames = np.asarray(frames)
+#     print('func:' + frames.shape)
+#     return frames
 
 def readdata(dir, idx):
     frames = []
@@ -58,7 +59,7 @@ class CustomDataloader(Sequence):
 
     def __len__(self):
         # return int(int(len(self.x) / 7) / self.batch_size)
-        return 220000*self.batch_size
+        return 1
 
     def __getitem__(self, idx):
         frames = []
@@ -67,10 +68,17 @@ class CustomDataloader(Sequence):
             cnt_frame = len(os.listdir(self.x+'/'+self.videolist[idx_video]))
             idx_frame = random.randint(0, cnt_frame-8)
             hrdir = self.x + '/' + self.videolist[idx_video] + '/'
-            frames.append(readdata(hrdir, idx_frame))
+
+            for j in range(7):
+                frames.append(LoadImage(hrdir + 'hr' + str(idx_frame+j) + '.png'))
+            # frames.extend(readdata(hrdir, idx_frame))
 
         frames = np.asarray(frames)
-        frames = np.reshape(frames, (-1, 7, 960, 540, 3))
+
+        # frames = np.squeeze(frames, 0)
+        frames = np.reshape(frames, (self.batch_size, 7, 960, 540, 3))
+        print(frames)
+
         return frames
         #
         #
@@ -92,6 +100,11 @@ class CustomDataloader(Sequence):
 
 
 train = CustomDataloader(x, batch_size=nb_batch)
+
+# for e in range(3):
+#     print(e)
+#     for x in train:
+#         print(x.shape)
 
 # val = CustomDataloader(val, batch_size=nb_batch)
 
@@ -320,7 +333,9 @@ with tf.Session(config=config) as sess:
         #                     val_G[f] = out_G
 
         t = time.time()
-        batch_H = train  # 배치 데이터로더 여기에 연결시키면 되겠다.
+        for f in train:
+            batch_H = f  # 배치 데이터로더 여기에 연결시키면 되겠다.
+
         dT += time.time() - t
 
         t = time.time()
